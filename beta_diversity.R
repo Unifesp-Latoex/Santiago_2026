@@ -15,8 +15,6 @@ file_path <- "weighted_ordination.txt"
 metadata <- read_q2metadata("q2-metadata.txt")
 head(metadata)
 metadata <- metadata %>%
-  rename(time_point = `time_point `)
-metadata <- metadata %>%
   mutate(birth = recode(birth,
                         "VDCF" = "VD-CF",
                         "CSCF" = "CS-CF"))
@@ -70,10 +68,9 @@ plot_pcoa_for_time_point <- function(data, time_point_filter = NULL) {
     data <- data %>% filter(time_point == time_point_filter)
   }
   if (!all(c("PC1", "PC2", "birth") %in% colnames(data))) {
-    stop("Columns PC1, PC2 ou birth não encontradas")
+    stop("Columns PC1, PC2 or birth not found")
   }
   
-  # ----- calcula convex hulls somente para grupos com >= 3 pontos -----
   hulls <- data %>%
     group_by(birth) %>%
     filter(n() >= 3) %>%
@@ -82,7 +79,6 @@ plot_pcoa_for_time_point <- function(data, time_point_filter = NULL) {
   
   # ----- plot -----
   plot <- ggplot(data, aes(x = PC1, y = PC2, color = birth)) +
-    # polígonos conectando pontos
     geom_polygon(
       data = hulls,
       aes(x = PC1, y = PC2, fill = birth, group = birth),
@@ -90,9 +86,7 @@ plot_pcoa_for_time_point <- function(data, time_point_filter = NULL) {
       alpha = 0.25,
       color = NA
     ) +
-    # pontos: círculos sólidos para todos
     geom_point(size = 6, shape = 16, alpha = 0.95) +
-    # linhas de referência
     geom_hline(yintercept = 0, color = "gray40", size = 0.5) +
     geom_vline(xintercept = 0, color = "gray40", size = 0.5) +
     labs(
