@@ -51,7 +51,7 @@ metadata <- as.data.frame(metadata)
 
 abund_long_normalized <- abund_long_normalized %>%
   separate(ASVs, into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus"), sep = ";", remove = FALSE, fill = "right", extra = "merge") %>%
-  mutate(Genus = trimws(Genus))  # Remover espaços em branco
+  mutate(Genus = trimws(Genus))  
 
 top_genera_df <- abund_long_normalized %>%
   dplyr::group_by(time_point, Genus) %>%
@@ -124,15 +124,15 @@ for (grupo in unique(abund_classified_plot$birth)) {
                strip.position = "bottom") +
     theme_publication() +  # tema ggembl
     theme(
-      axis.text.x = element_blank(),        # remove labels do eixo x
-      axis.ticks.x = element_blank(),       # remove ticks do eixo x
+      axis.text.x = element_blank(),        
+      axis.ticks.x = element_blank(),       
       axis.text.y = element_text(size = 18),
       axis.title.x = element_blank(),
       axis.title.y = element_text(size = 18),
       strip.text = element_text(size = 18),
       legend.text = element_text(size = 18),
       legend.title = element_text(size = 15),
-      plot.title = element_text(size = 25, face = "bold", hjust = 0.5)  # centralizado
+      plot.title = element_text(size = 25, face = "bold", hjust = 0.5) 
     ) +
     labs(
       title = paste(grupo),
