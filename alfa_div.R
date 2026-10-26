@@ -82,34 +82,42 @@ all_stats <- data.frame()
 for (metrics_name in names(metrics)) {
   cat("Metrics:", metrics_name, "\n")
   
-  metric_col <- metrics[[metrics_name]]$col
+  metric_col   <- metrics[[metrics_name]]$col
   metric_label <- metrics[[metrics_name]]$label
+  
   if (!metric_col %in% colnames(metadata)) {
     stop(paste("Column", metric_col, "not found in metadata"))
   }
 
   df_metric <- metadata %>%
-    dplyr::select(SampleID, birth, time_point, !!sym(metric_col)) %>%
+    dplyr::select(SampleID, id, birth, time_point, concat, !!sym(metric_col)) %>%
     drop_na()
+  
   dist_matrix <- dist(df_metric[[metric_col]])
+
   dispersion_result <- betadisper(dist_matrix, group = df_metric$birth)
-  dispersion_test <- permutest(dispersion_result)
+  dispersion_test   <- permutest(dispersion_result)
   
-  # PERMANOVA
-  permanova_result <- adonis2(dist_matrix ~ birth * time_point,
-                              data = df_metric, permutations = 999)
+  permanova_result <- adonis2(
+    dist_matrix ~ birth + time_point + concat,
+    data = df_metric,
+    strata = df_metric$id,
+    permutations = 999
+  )
+  print(permanova_result)
   
-  # Pairwise PERMANOVA
+  # Pairwise PERMANOVA por time_point
   pairwise_results <- data.frame()
-  for (tp in unique(df_metric$time_point)) {
+  for (tp in levels(df_metric$time_point)) {
     df_tp <- df_metric %>% filter(time_point == tp)
-    dist_tp <- dist(df_tp[[metric_col]])
-    pw <- pairwise.adonis(dist_tp, factors = df_tp$birth)
-    pw$time_point <- tp
-    pairwise_results <- rbind(pairwise_results, pw)
+    if (nrow(df_tp) > 0) {
+      dist_tp <- dist(df_tp[[metric_col]])
+      pw <- pairwise.adonis(dist_tp, factors = df_tp$birth)
+      pw$time_point <- tp
+      pairwise_results <- rbind(pairwise_results, pw)
+    }
   }
   
- 
   sig_pairs <- pairwise_results %>%
     filter(p.adjusted < 0.05) %>%
     mutate(
@@ -124,15 +132,17 @@ for (metrics_name in names(metrics)) {
       )
     )
   
+
+  birth_p <- permanova_result["birth", "Pr(>F)"]
   
   stat_df <- data.frame(
     Metric = metric_label,
-    PERMANOVA_p = permanova_result$`Pr(>F)`[1],
+    PERMANOVA_birth_p = birth_p,
     pairwise_results
   )
   all_stats <- rbind(all_stats, stat_df)
   
- 
+  # Plot
   p <- ggplot(df_metric, aes(x = time_point, y = !!sym(metric_col), fill = birth)) +
     geom_boxplot(alpha = 0.6, outlier.shape = NA,
                  color = "black", linewidth = 0.8,
@@ -150,18 +160,20 @@ for (metrics_name in names(metrics)) {
       axis.title = element_text(size = 44),
       legend.text = element_text(size = 34),
       legend.title = element_text(size = 42),
-      axis.line.x = element_line(size = 1.5),
-      axis.line.y = element_line(size = 1.5)
+      axis.line.x = element_line(linewidth = 1.5),
+      axis.line.y = element_line(linewidth = 1.5)
     ) +
     annotate("text", x = 1.5, y = min(df_metric[[metric_col]], na.rm = TRUE) * 0.95,
-             label = paste("PERMANOVA p =", signif(permanova_result$`Pr(>F)`[1], 3)),
-             hjust = 0.5, size = 5, color = "black") +
-    stat_pvalue_manual(sig_pairs, label = "label",
-                       xmin = "group1", xmax = "group2",
-                       y.position = "y.position", tip.length = 0.02)
+             label = paste("Birth p =", signif(birth_p, 3)),
+             hjust = 0.5, size = 5, color = "black")
+  
+  if (nrow(sig_pairs) > 0) {
+    p <- p + stat_pvalue_manual(sig_pairs, label = "label",
+                                xmin = "group1", xmax = "group2",
+                                y.position = "y.position", tip.length = 0.02)
+  }
 
   ggsave(paste0("plot_", metrics_name, ".pdf"), plot = p, height = 6, width = 8)
 }
 
 write.xlsx(all_stats, "stats_all_metrics.xlsx", rowNames = FALSE)
-
